@@ -35,10 +35,23 @@ export async function initCsrf() {
   }
 }
 
-// Interceptor: Tự động thêm CSRF token vào các request nhạy cảm
+// Interceptor: Tự động thêm CSRF token và Authorization header
 api.interceptors.request.use(
   // 🌟 ĐÃ SỬA: Thay thế AxiosRequestConfig bằng 'any' để tránh xung đột kiểu nội bộ của Axios
   (config: any) => {
+    // KHẮC PHỤC LỖI: Đảm bảo headers tồn tại
+    if (!config.headers) {
+      config.headers = {};
+    }
+
+    // Thêm Bearer token nếu có trong localStorage
+    if (typeof window !== 'undefined') {
+      const token = localStorage.getItem('access_token');
+      if (token && !config.headers['Authorization']) {
+        config.headers['Authorization'] = `Bearer ${token}`;
+      }
+    }
+
     // Chỉ thêm X-XSRF-TOKEN cho các phương thức cần bảo vệ (POST, PUT, PATCH, DELETE)
     const methodsToProtect = ["post", "put", "patch", "delete"];
     if (
@@ -52,12 +65,6 @@ api.interceptors.request.use(
 
       if (xsrfToken) {
         const decodedToken = decodeURIComponent(xsrfToken);
-
-        // KHẮC PHỤC LỖI: Đảm bảo headers tồn tại
-        if (!config.headers) {
-          config.headers = {};
-        }
-
         config.headers["X-XSRF-TOKEN"] = decodedToken;
       } else {
         console.warn(

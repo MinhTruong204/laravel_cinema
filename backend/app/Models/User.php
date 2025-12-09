@@ -12,7 +12,8 @@ class User extends Authenticatable
 {
     use HasApiTokens, HasFactory, Notifiable;
 
-    protected $primaryKey = 'user_id';
+    // Primary key is 'id' (default Laravel convention)
+    // protected $primaryKey = 'user_id';
 
     /**
      * The attributes that are mass assignable.
@@ -26,15 +27,23 @@ class User extends Authenticatable
         'password',
         'phone',
         'role',
+        'provider',
+        'provider_id',
+        'provider_token',
+        'provider_refresh_token',
+        'provider_avatar_url',
     ];
 
     /**
-     * BẮT BUỘC: PHƯƠNG THỨC SETTER (Mutator) 
+     * BẮT BUỘC: PHƯƠNG THỨC SETTER (Mutator)
      * Khi gọi User::create(['password' => '123456']), setter này sẽ Hash mật khẩu và gán cho cột DB.
+     * Cho phép null để support OAuth users không có password.
      */
     public function setPasswordAttribute($value)
     {
-        $this->attributes['password_hash'] = Hash::make($value);
+        if ($value !== null) {
+            $this->attributes['password_hash'] = Hash::make($value);
+        }
     }
 
     // PHƯƠNG THỨC ÁNH XẠ: Trả về mật khẩu hash cho Auth::attempt()
@@ -50,6 +59,8 @@ class User extends Authenticatable
     protected $hidden = [
         'password_hash',
         'remember_token',
+        'provider_token',
+        'provider_refresh_token',
     ];
 
     /**

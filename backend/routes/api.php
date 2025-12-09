@@ -3,6 +3,7 @@
 // Import các lớp cần thiết cho việc định nghĩa route và Controller.
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\SocialAuthController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\BookingController;
@@ -18,6 +19,21 @@ use App\Http\Controllers\BookingController;
 Route::post('register', [AuthController::class, 'register']); // Frontend gọi /api/register
 // Route đăng nhập
 Route::post('login', [AuthController::class, 'login']);   // Frontend gọi /api/login
+
+// Google OAuth Routes
+Route::get('auth/google', [SocialAuthController::class, 'redirectToGoogle']);
+Route::get('auth/google/callback', [SocialAuthController::class, 'handleGoogleCallback']);
+
+// Test route to check user schema
+Route::get('test/user-schema', function() {
+    $user = \App\Models\User::first();
+    return response()->json([
+        'has_user' => $user ? true : false,
+        'fillable' => (new \App\Models\User())->getFillable(),
+        'columns' => $user ? array_keys($user->getAttributes()) : [],
+        'sample_user' => $user ? $user->makeVisible(['user_id']) : null,
+    ]);
+});
 
 // Route Đăng xuất và Lấy thông tin người dùng (Cần Middleware Sanctum)
 Route::middleware('auth:sanctum')->group(function () {

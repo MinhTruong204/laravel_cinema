@@ -65,13 +65,12 @@ export default function Header() {
   useEffect(() => {
     const checkLoginStatus = () => {
       const storedUser = localStorage.getItem("user_info");
-      const storedToken = localStorage.getItem("access_token");
 
-      if (storedUser && storedToken) {
+      if (storedUser) {
         try {
           const parsedUser = JSON.parse(storedUser);
           // Kiểm tra kỹ: Phải có ít nhất tên hoặc email mới coi là hợp lệ
-          if (parsedUser && (parsedUser.name || parsedUser.full_name || parsedUser.email || parsedUser.id)) {
+          if (parsedUser && (parsedUser.name || parsedUser.full_name || parsedUser.email || parsedUser.id || parsedUser.user_id)) {
             setUser(parsedUser);
           } else {
             // Dữ liệu rác (object rỗng {}) -> Xóa đi
@@ -84,6 +83,26 @@ export default function Header() {
     };
 
     checkLoginStatus();
+
+    // Listen for storage changes from other tabs/windows
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'user_info') {
+        checkLoginStatus();
+      }
+    };
+
+    // Listen for custom login event
+    const handleLoginEvent = () => {
+      checkLoginStatus();
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('userLoggedIn', handleLoginEvent);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('userLoggedIn', handleLoginEvent);
+    };
   }, []);
 
   const handleLogout = () => {
