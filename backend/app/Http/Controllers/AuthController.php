@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Models\EmailVerification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -17,7 +18,6 @@ class AuthController extends Controller
     public function register(Request $request)
     {
         // SỬA ĐỔI: Validation sử dụng 'full_name'
-        // dd($request->all());
         $validator = Validator::make($request->all(), [
             'full_name' => 'required|string|max:255',
             'email' => 'required|email|unique:users,email|max:255',
@@ -33,20 +33,30 @@ class AuthController extends Controller
             ], 422);
         }
 
-        // Tạo User
-        $user = User::create([
-            'full_name' => $request->full_name, 
-            'email' => $request->email,
-            'phone' => $request->phone ?? null,
-            'password' => $request->password,
-            'role' => 'customer',
-        ]);
+        // Tạo và gửi OTP với registration data
+        try {
+            EmailVerification::createAndSend($request->email, [
+                'full_name' => $request->full_name,
+                'email' => $request->email,
+                'phone' => $request->phone,
+                'password' => $request->password,
+            ]);
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Đăng ký thành công! Vui lòng đăng nhập.',
-            'data' => $user->makeHidden(['password_hash', 'remember_token']),
-        ], 201);
+            return response()->json([
+                'success' => true,
+                'message' => 'Mã OTP đã được gửi đến email của bạn. Vui lòng kiểm tra và xác thực.',
+                'data' => [
+                    'email' => $request->email,
+                    'requires_otp' => true,
+                ],
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Không thể gửi email. Vui lòng thử lại sau.',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
     }
 
     /**
@@ -102,5 +112,98 @@ class AuthController extends Controller
             'success' => true,
             'message' => 'Đăng xuất thành công.'
         ], 200);
+    }
+
+    /**
+     * Verify OTP and complete registration
+     * POST /api/verify-otp
+     */
+    public function verifyOtp(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'email' => 'required|email',
+            'otp' => 'required|string|size:6',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Dữ liệu không hợp lệ.',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        // Verify OTP
+        $verification = EmailVerification::verify($request->email, $request->otp);
+
+        if (!$verification) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Mã OTP không đúng hoặc đã hết hạn.',
+            ], 400);
+        }
+
+        // Get registration data from verification record
+        $pendingData = $verification->getRegistrationData();
+
+        if (!$pendingData) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Không tìm thấy thông tin đăng ký. Vui lòng đăng ký lại.',
+            ], 400);
+        }
+
+        // Create user
+        $user = User::create([
+            'full_name' => $pendingData['full_name'],
+            'email' => $pendingData['email'],
+            'phone' => $pendingData['phone'] ?? null,
+            'password' => $pendingData['password'],
+            'role' => 'customer',
+            'email_verified_at' => now(),
+        ]);
+
+        // Auto login
+        Auth::login($user);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Xác thực thành công! Tài khoản đã được kích hoạt.',
+            'data' => $user->makeHidden(['password_hash', 'remember_token']),
+        ], 200);
+    }
+
+    /**
+     * Resend OTP
+     * POST /api/resend-otp
+     */
+    public function resendOtp(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'email' => 'required|email',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Email không hợp lệ.',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        try {
+            EmailVerification::createAndSend($request->email);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Mã OTP mới đã được gửi đến email của bạn.',
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Không thể gửi email. Vui lòng thử lại sau.',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
     }
 }

@@ -29,6 +29,9 @@ export async function initCsrf() {
       withCredentials: true,
     });
     console.log("✅ CSRF cookie initialized successfully.");
+
+    // Wait a bit for cookie to be set
+    await new Promise(resolve => setTimeout(resolve, 100));
   } catch (error) {
     console.error("❌ Failed to initialize CSRF cookie:", error);
     throw error;
@@ -58,18 +61,18 @@ api.interceptors.request.use(
       config.method &&
       methodsToProtect.includes(config.method.toLowerCase())
     ) {
-      const xsrfToken = document.cookie
-        .split("; ")
-        .find((row) => row.startsWith("XSRF-TOKEN="))
-        ?.split("=")[1];
+      // Try to get XSRF token from cookies
+      if (typeof document !== 'undefined') {
+        const xsrfToken = document.cookie
+          .split("; ")
+          .find((row) => row.startsWith("XSRF-TOKEN="))
+          ?.split("=")[1];
 
-      if (xsrfToken) {
-        const decodedToken = decodeURIComponent(xsrfToken);
-        config.headers["X-XSRF-TOKEN"] = decodedToken;
-      } else {
-        console.warn(
-          "⚠️ XSRF-TOKEN cookie not found. Please run initCsrf() first."
-        );
+        if (xsrfToken) {
+          const decodedToken = decodeURIComponent(xsrfToken);
+          config.headers["X-XSRF-TOKEN"] = decodedToken;
+        }
+        // Remove warning - it's annoying and request still works
       }
     }
 

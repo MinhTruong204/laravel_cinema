@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { X, Loader2, Eye, EyeOff } from "lucide-react";
 import api, { initCsrf } from "@/lib/api";
+import OtpModal from "./otp-modal";
 
 interface LoginModalProps {
   isOpen: boolean;
@@ -25,6 +26,8 @@ export default function LoginModal({
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [showOtpModal, setShowOtpModal] = useState(false);
+  const [otpEmail, setOtpEmail] = useState("");
 
   const validateEmail = (email: string) => {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
@@ -70,7 +73,7 @@ export default function LoginModal({
         }
 
         await initCsrf();
-        await api.post("/register", {
+        const response = await api.post("/register", {
           full_name: fullName,
           email,
           phone,
@@ -78,16 +81,28 @@ export default function LoginModal({
           password_confirmation: confirmPassword,
         });
 
-        setSuccess("Đăng ký thành công! Vui lòng đăng nhập.");
-        setTimeout(() => {
-          setFullName("");
-          setEmail("");
-          setPhone("");
-          setPassword("");
-          setConfirmPassword("");
-          setSuccess("");
-          setIsSignUp(false);
-        }, 2000);
+        // Check if OTP is required
+        if (response.data.data?.requires_otp) {
+          setSuccess("Mã OTP đã được gửi đến email của bạn!");
+          setOtpEmail(email);
+
+          setTimeout(() => {
+            setSuccess("");
+            setShowOtpModal(true);
+          }, 1500);
+        } else {
+          // Old flow (if OTP is disabled)
+          setSuccess("Đăng ký thành công! Vui lòng đăng nhập.");
+          setTimeout(() => {
+            setFullName("");
+            setEmail("");
+            setPhone("");
+            setPassword("");
+            setConfirmPassword("");
+            setSuccess("");
+            setIsSignUp(false);
+          }, 2000);
+        }
       } else {
         // === LOGIC ĐĂNG NHẬP ===
         if (!validateEmail(email)) {
@@ -170,13 +185,22 @@ export default function LoginModal({
     window.location.href = `${backendUrl}/api/auth/google`;
   };
 
+  const handleOtpVerifySuccess = (user: any) => {
+    if (onLoginSuccess) {
+      onLoginSuccess(user);
+    }
+    setShowOtpModal(false);
+    onClose();
+  };
+
   if (!isOpen) return null;
 
   return (
-    <div
-      className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center animate-in fade-in duration-200"
-      onClick={onClose}
-    >
+    <>
+      <div
+        className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center animate-in fade-in duration-200"
+        onClick={onClose}
+      >
       <div
         className="bg-card bg-white dark:bg-gray-900 rounded-lg shadow-lg w-full max-w-md mx-4 overflow-hidden"
         onClick={(e) => e.stopPropagation()}
@@ -356,5 +380,13 @@ export default function LoginModal({
         </form>
       </div>
     </div>
+
+    <OtpModal
+      isOpen={showOtpModal}
+      onClose={() => setShowOtpModal(false)}
+      email={otpEmail}
+      onVerifySuccess={handleOtpVerifySuccess}
+    />
+    </>
   );
 }
