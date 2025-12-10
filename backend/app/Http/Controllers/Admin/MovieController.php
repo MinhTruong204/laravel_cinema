@@ -29,7 +29,7 @@ class MovieController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'title' => 'required|string|max:255',
-            'title_vi' => 'required|string|max:255',
+            // 'title_vi' => 'required|string|max:255',
             'description' => 'nullable|string',
             'description_vi' => 'nullable|string',
             'genre' => 'required|string',

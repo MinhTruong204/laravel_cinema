@@ -119,7 +119,7 @@ export default function LoginModal({
         await initCsrf();
         const response = await api.post("/login", { email, password });
 
-        console.log("👉 API Response:", response);
+        console.log("API Response:", response);
         const data = response.data;
 
         // Tìm user ở nhiều vị trí có thể xảy ra trong response
@@ -133,7 +133,7 @@ export default function LoginModal({
         const token =
           data.token || data.access_token || data.data?.access_token;
 
-        console.log("👉 User tìm thấy:", userData);
+        console.log("User tìm thấy:", userData);
 
         if (userData) {
           // Extract role and redirect_to from response
@@ -148,10 +148,10 @@ export default function LoginModal({
           window.dispatchEvent(new Event('userLoggedIn'));
 
           if (onLoginSuccess) {
-            console.log("✅ Gọi onLoginSuccess");
+            console.log("Gọi onLoginSuccess");
             onLoginSuccess(userData);
           } else {
-            console.warn("⚠️ Chưa truyền onLoginSuccess");
+            console.warn("Chưa truyền onLoginSuccess");
           }
 
           setSuccess("Đăng nhập thành công!");
